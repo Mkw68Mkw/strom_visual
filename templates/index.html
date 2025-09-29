@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ page_title or 'SDAT/ESL Dashboard' }}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+  </head>
+  <body>
+    <header>
+      <h1>{{ page_title or 'SDAT/ESL Dashboard' }}</h1>
+      <p>Zeitreihen der Zählerstände (Einspeisung vs. Bezug)</p>
+    </header>
+
+    <main>
+      <h2 style="margin:8px 0">Zählerstände</h2>
+      <div class="chart-container" id="meter-wrap">
+        <canvas id="meterChart"></canvas>
+      </div>
+      <h2 style="margin:16px 0 8px">Verbrauch</h2>
+      <div class="chart-container" id="cons-wrap">
+        <canvas id="consChart"></canvas>
+      </div>
+    </main>
+
+    <script type="application/json" id="payload">{{ data_json | safe }}</script>
+    <script>
+      const data = JSON.parse(document.getElementById('payload').textContent);
+
+      const ctx = document.getElementById('meterChart').getContext('2d');
+      const timeScaleAvailable = (typeof Chart !== 'undefined' && Chart.registry && typeof Chart.registry.getScale === 'function' && Chart.registry.getScale('time'));
+      const xScale = timeScaleAvailable ? {
+        type: 'time',
+        time: {
+          tooltipFormat: 'yyyy-MM-dd HH:mm',
+          displayFormats: { minute: 'yyyy-MM-dd HH:mm', hour: 'yyyy-MM-dd HH:mm' }
+        },
+        ticks: { autoSkip: true, maxRotation: 0 }
+      } : {
+        type: 'category',
+        ticks: { autoSkip: true, maxRotation: 0 }
+      };
+
+      const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: data.datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: xScale,
+             y: {
+               beginAtZero: false,
+               title: { display: true, text: '{{ y_label or "Zählerstand" }}' }
+             }
+          },
+          interaction: {
+            mode: 'nearest',
+            intersect: false
+          },
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: { enabled: true },
+            title: { display: false }
+          },
+          elements: { point: { radius: (Array.isArray(data.labels) && data.labels.length <= 2) ? 3 : 0 } }
+        }
+      });
+
+      // Consumption chart
+      const consCtx = document.getElementById('consChart').getContext('2d');
+      fetch('/api/consumption').then(r => r.json()).then(cons => {
+        const consChart = new Chart(consCtx, {
+          type: 'line',
+          data: { labels: cons.labels, datasets: cons.datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: xScale,
+              y: { beginAtZero: true, title: { display: true, text: 'Verbrauch (kWh)' } }
+            },
+            interaction: { mode: 'nearest', intersect: false },
+            plugins: { legend: { position: 'top' }, tooltip: { enabled: true }, title: { display: false } },
+            elements: { point: { radius: 0 } }
+          }
+        });
+      });
+    </script>
+  </body>
+  </html>
+
+
