@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, Response, jsonify, render_template
 import xml.etree.ElementTree as ET
 
 
@@ -427,6 +427,41 @@ def create_app() -> Flask:
     def api_consumption():
         meters = load_all_data(DATA_DIR)
         return jsonify(build_consumption_payload(meters))
+
+    @app.route("/export.csv")
+    def export_csv():
+        meters = load_all_data(DATA_DIR)
+        # Build rows: timestamp, import_value, export_value
+        label_set = set()
+        for series in meters.values():
+            label_set.update(series.keys())
+        labels = sorted(label_set)
+        imp = meters.get(METER_IMPORT_ID, {})
+        exp = meters.get(METER_EXPORT_ID, {})
+        lines = ["timestamp,import_kwh,export_kwh"]
+        for ts in labels:
+            iv = imp[ts].value if ts in imp else ""
+            ev = exp[ts].value if ts in exp else ""
+            lines.append(f"{ts.astimezone(timezone.utc).isoformat()},{iv},{ev}")
+        csv_data = "\n".join(lines) + "\n"
+        return Response(csv_data, mimetype="text/csv")
+
+    @app.route("/export_consumption.csv")
+    def export_consumption_csv():
+        meters = load_all_data(DATA_DIR)
+        payload = build_consumption_payload(meters)
+        labels = payload.get("labels", [])
+        ds = payload.get("datasets", [])
+        # Expect datasets[0] = export, datasets[1] = import as built above
+        exp_vals = (ds[0].get("data") if len(ds) > 0 else []) or []
+        imp_vals = (ds[1].get("data") if len(ds) > 1 else []) or []
+        lines = ["timestamp,import_kwh,export_kwh"]
+        for i, ts in enumerate(labels):
+            iv = imp_vals[i] if i < len(imp_vals) and imp_vals[i] is not None else ""
+            ev = exp_vals[i] if i < len(exp_vals) and exp_vals[i] is not None else ""
+            lines.append(f"{ts},{iv},{ev}")
+        csv_data = "\n".join(lines) + "\n"
+        return Response(csv_data, mimetype="text/csv")
 
     return app
 

@@ -16,6 +16,13 @@
     </header>
 
     <main>
+      <div class="toolbar">
+        <a href="/export.csv" download class="btn">Export Zählerstände (CSV)</a>
+        <a href="/export_consumption.csv" download class="btn">Export Verbrauch (CSV)</a>
+        <a href="/api/data" target="_blank" class="btn secondary">Daten JSON</a>
+        <a href="/api/consumption" target="_blank" class="btn secondary">Verbrauch JSON</a>
+      </div>
+
       <h2 style="margin:8px 0">Zählerstände</h2>
       <div class="chart-container" id="meter-wrap">
         <canvas id="meterChart"></canvas>
