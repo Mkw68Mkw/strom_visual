@@ -391,6 +391,22 @@ def build_consumption_payload(meters: AllMeters) -> Dict[str, object]:
     }
     return payload
 
+
+def build_json_export_payload(meters: AllMeters) -> Dict[str, List[Dict[str, object]]]:
+    """Build a JSON-serializable payload from the raw meter data."""
+    payload: Dict[str, List[Dict[str, object]]] = {}
+    for meter_id, series in meters.items():
+        payload[meter_id] = [
+            {
+                "timestamp": mw.timestamp.isoformat(),
+                "value": mw.value,
+                "relative": mw.relative,
+            }
+            for mw in series.values()
+        ]
+    return payload
+
+
 # -----------------------------
 # Flask app
 # -----------------------------
@@ -427,6 +443,15 @@ def create_app() -> Flask:
     def api_consumption():
         meters = load_all_data(DATA_DIR)
         return jsonify(build_consumption_payload(meters))
+
+    @app.route("/export.json")
+    def export_json():
+        """Export all loaded meter data as a JSON file."""
+        meters = load_all_data(DATA_DIR)
+        payload = build_json_export_payload(meters)
+        response = jsonify(payload)
+        response.headers["Content-Disposition"] = "attachment; filename=export.json"
+        return response
 
     @app.route("/export.csv")
     def export_csv():
