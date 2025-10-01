@@ -6,6 +6,7 @@
     <title>{{ page_title or 'SDAT/ESL Dashboard' }}</title>
     <link rel="stylesheet" href="/static/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
   </head>
@@ -29,6 +30,9 @@
         <canvas id="meterChart"></canvas>
       </div>
       <h2 style="margin:16px 0 8px">Verbrauch</h2>
+      <div class="toolbar" style="margin-top: -4px; margin-bottom: 8px;">
+        <button id="resetConsZoom" class="btn secondary" type="button">Zoom zurücksetzen</button>
+      </div>
       <div class="chart-container" id="cons-wrap">
         <canvas id="consChart"></canvas>
       </div>
@@ -83,6 +87,9 @@
 
       // Consumption chart
       const consCtx = document.getElementById('consChart').getContext('2d');
+      if (typeof ChartZoom !== 'undefined') {
+        Chart.register(ChartZoom);
+      }
       fetch('/api/consumption').then(r => r.json()).then(cons => {
         const consChart = new Chart(consCtx, {
           type: 'line',
@@ -95,11 +102,44 @@
               y: { beginAtZero: true, title: { display: true, text: 'Verbrauch (kWh)' } }
             },
             interaction: { mode: 'nearest', intersect: false },
-            plugins: { legend: { position: 'top' }, tooltip: { enabled: true }, title: { display: false } },
+            plugins: {
+              legend: { position: 'top' },
+              tooltip: { enabled: true },
+              title: { display: false },
+              zoom: {
+                zoom: {
+                  // Drag-to-zoom selection on X-axis
+                  drag: {
+                    enabled: true,
+                    backgroundColor: 'rgba(31,119,180,0.1)',
+                    borderColor: '#1f77b4',
+                    borderWidth: 1
+                  },
+                  wheel: { enabled: true },
+                  pinch: { enabled: true },
+                  mode: 'x'
+                },
+                pan: {
+                  enabled: true,
+                  mode: 'x',
+                  modifierKey: 'shift'
+                }
+              }
+            },
             elements: { point: { radius: 0 } }
           }
         });
+        window.consChart = consChart;
       });
+
+      const resetBtn = document.getElementById('resetConsZoom');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          if (window.consChart && typeof window.consChart.resetZoom === 'function') {
+            window.consChart.resetZoom();
+          }
+        });
+      }
     </script>
   </body>
   </html>
